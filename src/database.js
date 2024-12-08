@@ -119,23 +119,38 @@ module.exports = class VKDatabase {
         try{
 
             const encryptedAccount = await this.db.get(uid)
+            if(encryptedAccount === undefined){
+            	return null
+            }
             const account = await this.decrypt(encryptedAccount)
             return account
 
         }catch(err){
-
-            if (err.notFound) {
-
-                return null
-
-            }
 
             console.error('Error getting account by UID:', err)
             return null
         }
     }
 
+    async isExist(uid){
+
+		let check = await this.getAccountByUID(uid)
+
+    	if(check){
+
+    		return check
+
+    	}else{
+
+    		return false
+    	}
+    }
+
     async createAccount(uid, access_token, params){
+
+    	if(await this.isExist(uid)){
+    		return false
+    	}
 
         const kyoka_token = crypto.randomUUID()
 
@@ -158,6 +173,51 @@ module.exports = class VKDatabase {
             return null
 
         }
+    }
+
+    async changeAccount(uid, data){
+
+		if(!data){
+			return false
+		}
+
+    	let acc = await this.isExist(uid)
+    	console.log(acc)
+    	if(!acc){
+    		return false
+    	}
+
+	    const account = {
+	        access_token: acc.access_token,
+	        kyoka_token: acc.kyoka_token,
+	        params: acc.params,
+	        ...data
+	    };
+
+        const encryptedAccount = await this.encrypt(account)
+
+        try{
+
+            await this.db.put(uid, encryptedAccount)
+            return true
+
+        }catch(err){
+
+            console.error('Error editing account:', err)
+            return null
+
+        }
+    }
+
+	async deleteAccount(uid){
+
+    	if(!await this.isExist(uid)){
+    		return false
+    	}
+
+        await this.db.del(uid);
+        return true
+
     }
 
     async close(){
