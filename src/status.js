@@ -4,6 +4,7 @@ module.exports = class VKStatus{
 
 	async process(text){
 		//to do
+		//return text
 	}
 
 	async set(text, token){

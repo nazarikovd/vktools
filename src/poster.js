@@ -4,6 +4,7 @@ module.exports = class VKPoster{
 
 	async pushText(file, text, x, y, color, font){
 		//to do
+		//return file
 	}
 
 	async uploadCover(file, token){
