@@ -8,49 +8,76 @@ let status = require('./status.js')
 
 class VKSheduler{
 
-	constructor{
+	constructor(_log=console.log){
 
-		this.database = new database("accounts", config.key)
+		this.database = new database(config.db_name, config.db_key)
 		this.poster = new poster()
 		this.online = new online()
 		this.status = new status()
-
+		this.cron = null
+		this._log = _log
 	}
 
 	async run(){
 
-		//todo cron(job())
+		this.cron = cron.schedule('* * * * *', async () => {
+			this._runWithTimeout(this.job())
+		});
 		
 	}
-	async job(){
 
-		let accounts = this.database.getAccounts()
-		for(let account of accounts){
+	async _runWithTimeout(f) {
+		let startTime = Date.now();
+		const timeout = new Promise((resolve, reject) => {
+			setTimeout(() => reject("Timeout"), 60000);
+		});
 
-			let params = account.params
+		try {
+			await Promise.race([f, timeout]);
+			let duration = Date.now() - startTime;
+			this.log("SUCCESS_CRON", `cron successfully completed in ${duration} ms`)
 
-			if(params.poster.enabled == true){
+		}catch(error){
 
-				let file = await this.poster.pushText(params.poster.file, params.poster.text, params.poster.x, params.poster.y, params.poster.font)
-				this.poster.uploadCover(file, account.access_token)
-
-			}
-
-			if(account.params.online.enabled == true){
-
-				this.online.set(account.access_token)
-
-			}
-
-			if(account.params.status.enabled == true){
-
-				let text = await this.status.process(params.status.text)
-				this.status.set(text, account.access_token)
-
+			if(error === "Timeout"){
+				this.log("FAILED_CRON", "cron timed out")
+			}else{
+				this.log("FAILED_CRON", "cron failed")
 			}
 
 		}
+	}
 
+	async job(){
+
+		let accounts = await this.database.getAccounts();
+
+		for (let account of accounts) {
+
+			let params = account.data.params;
+			if (params.poster.enabled) {
+				this.log("SUCCESS_JOB", "poster @ "+account.uid)
+				let file = await this.poster.pushText(params.poster.file, params.poster.text, params.poster.x, params.poster.y, params.poster.font);
+				this.poster.uploadCover(file, account.data.access_token);
+			}
+
+			if (params.online.enabled) {
+				this.log("SUCCESS_JOB", "online @ "+account.uid)
+				this.online.set(account.data.access_token);
+			}
+
+			if (params.status.enabled) {
+				this.log("SUCCESS_JOB", "status @ "+account.uid)
+				let text = await this.status.process(params.status.text);
+				this.status.set(text, account.data.access_token);
+			}
+		}
+
+
+	}
+
+	log(type, data){
+		this._log(type, data)
 	}
 
 
