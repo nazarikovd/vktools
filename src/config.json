@@ -1,4 +1,7 @@
 {
 	"db_name":"accounts",
-	"db_key": "test"
+	"db_key": "test",
+	"images": "./images/",
+	"imagesPrc": "./imagesPrc/"
+
 }
